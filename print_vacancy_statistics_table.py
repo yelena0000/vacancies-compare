@@ -1,11 +1,9 @@
 from datetime import datetime, timedelta
 
 from environs import Env
-from requests.exceptions import RequestException
 from terminaltables import AsciiTable
 
 import requests
-
 
 LANGUAGES = [
     'Python',
@@ -18,6 +16,8 @@ LANGUAGES = [
     'C',
     'Go',
 ]
+HH_MOSCOW_AREA_ID = '1'
+SJ_CATALOGUES_PROGRAMMING = 48
 
 
 def get_hh_vacancies(language):
@@ -26,11 +26,12 @@ def get_hh_vacancies(language):
 
     page = 0
     pages_number = 1
+    total_vacancies = 0
 
     params = {
         'page': page,
         'text': f'Программист {language}',
-        'area': '1',
+        'area': HH_MOSCOW_AREA_ID,
         'date_from': date_from,
     }
 
@@ -41,18 +42,15 @@ def get_hh_vacancies(language):
 
         page_payload = page_response.json()
         pages_number = page_payload['pages']
+        total_vacancies = page_payload['found']
         page += 1
 
         vacancies.extend(page_payload['items'])
 
-    return vacancies
+    return vacancies, total_vacancies
 
 
-def get_sj_vacancies(language):
-    env = Env()
-    env.read_env()
-    api_key = env.str('SUPER_JOB_KEY')
-
+def get_sj_vacancies(language, api_key):
     url = 'https://api.superjob.ru/2.0/vacancies/'
 
     headers = {
@@ -63,6 +61,7 @@ def get_sj_vacancies(language):
 
     page = 0
     more_pages = True
+    total_vacancies = 0
     vacancies = []
 
     while more_pages:
@@ -70,7 +69,7 @@ def get_sj_vacancies(language):
             'keywords': [f'Программист {language}'],
             'town': 'Москва',
             'date_published_from': date_from,
-            'catalogues': 48,
+            'catalogues': SJ_CATALOGUES_PROGRAMMING,
             'page': page,
         }
 
@@ -80,9 +79,10 @@ def get_sj_vacancies(language):
         page_payload = page_response.json()
         vacancies.extend(page_payload['objects'])
         more_pages = page_payload['more']
+        total_vacancies = page_payload['total']
         page += 1
 
-    return vacancies
+    return vacancies, total_vacancies
 
 
 def predict_salary(salary_from, salary_to):
@@ -118,7 +118,7 @@ def calculate_statistics_hh(languages):
     statistics = {}
 
     for language in languages:
-        vacancies = get_hh_vacancies(language)
+        vacancies, vacancies_found = get_hh_vacancies(language)
         salaries = []
         for vacancy in vacancies:
             salary = predict_rub_salary_hh(vacancy)
@@ -126,7 +126,7 @@ def calculate_statistics_hh(languages):
                 salaries.append(salary)
 
         statistics[language] = {
-            'vacancies_found': len(vacancies),
+            'vacancies_found': vacancies_found,
             'vacancies_processed': len(salaries),
             'average_salary': (
                 int(sum(salaries) / len(salaries)) if salaries
@@ -137,11 +137,11 @@ def calculate_statistics_hh(languages):
     return statistics
 
 
-def calculate_statistics_sj(languages):
+def calculate_statistics_sj(languages, api_key):
     statistics = {}
 
     for language in languages:
-        vacancies = get_sj_vacancies(language)
+        vacancies, vacancies_found = get_sj_vacancies(language, api_key)
         salaries = []
 
         for vacancy in vacancies:
@@ -150,7 +150,7 @@ def calculate_statistics_sj(languages):
                 salaries.append(salary)
 
         statistics[language] = {
-            'vacancies_found': len(vacancies),
+            'vacancies_found': vacancies_found,
             'vacancies_processed': len(salaries),
             'average_salary': (
                 int(sum(salaries) / len(salaries)) if salaries
@@ -182,19 +182,15 @@ def print_statistics_table(statistics, platform):
 
 
 def main():
-    try:
-        hh_statistics = calculate_statistics_hh(LANGUAGES)
-        sj_statistics = calculate_statistics_sj(LANGUAGES)
+    env = Env()
+    env.read_env()
+    api_key = env.str('SUPER_JOB_KEY')
 
-        print_statistics_table(hh_statistics, 'HeadHunter')
-        print_statistics_table(sj_statistics, 'SuperJob')
+    hh_statistics = calculate_statistics_hh(LANGUAGES)
+    sj_statistics = calculate_statistics_sj(LANGUAGES, api_key)
 
-    except requests.exceptions.RequestException as request_error:
-        print(f'Ошибка при выполнении запроса: {request_error}')
-    except (KeyError, ValueError) as data_error:
-        print(f'Ошибка обработки данных: {data_error}')
-    except Exception as error:
-        print(f'Произошла непредвиденная ошибка: {error}')
+    print_statistics_table(hh_statistics, 'HeadHunter')
+    print_statistics_table(sj_statistics, 'SuperJob')
 
 
 if __name__ == '__main__':
