@@ -11,7 +11,7 @@
 ```
 pip install -r requirements.txt
 ```
-3. Зарегестрируйте приложение на [SuperJob](https://api.superjob.ru/) и получите его **API-ключ** (X-Api-App-Id).
+3. Зарегистрируйте приложение на [SuperJob](https://api.superjob.ru/) и получите его **API-ключ (X-Api-App-Id)**.
 4. Создайте файл `.env` рядом с вашим проектом и добавьте в него переменную (ваш **API-ключ**) в следующем формате:
 
 ```
@@ -22,7 +22,7 @@ SUPER_JOB_KEY='your_api_key'
 python print_vacancy_statistics_table.py
 ```
 ### Пример вывода:
-
+![пример вывода](https://github.com/user-attachments/assets/e5ae3210-9d61-4c08-b33a-0a7027207c1d)
 ## Цель проекта
 
 Код написан в образовательных целях на онлайн-курсе для веб-разработчиков [dvmn.org](https://dvmn.org/).
